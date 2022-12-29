@@ -15,18 +15,27 @@ describe("/contracts", () => {
     test('authenticated request includes client contracts', async () => {
         const response = await request(app).get("/contracts").set("profile_id", "1");
         expect(response.statusCode).toBe(200);
-        expect(response.body).toEqual([{ id: 1 }, { id: 2 }]);
+        expect(response.body).toEqual([
+            // expect.objectContaining({ id: 1 }), not included because it is terminated
+            expect.objectContaining({ id: 2 }),
+        ]);
     });
 
     test('authenticated request includes contractor contracts', async () => {
         const response = await request(app).get("/contracts").set("profile_id", "6");
         expect(response.statusCode).toBe(200);
-        expect(response.body).toEqual([{ id: 2 }, { id: 3 }]);
+        expect(response.body).toEqual([
+            expect.objectContaining({ id: 2 }),
+            expect.objectContaining({ id: 3 }),
+            expect.objectContaining({ id: 8 }),
+        ]);
     });
 
     test('authenticated request includes contractor contracts, but excludes terminated', async () => {
         const response = await request(app).get("/contracts").set("profile_id", "5");
         expect(response.statusCode).toBe(200);
-        expect(response.body).toEqual([]);
+        expect(response.body).toEqual([
+            // expect.objectContaining({ id: 1 }), not included because it is terminated
+        ]);
     });
 });
