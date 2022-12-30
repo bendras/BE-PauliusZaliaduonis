@@ -66,7 +66,7 @@ app.get('/jobs/unpaid', getProfile, async (req, res) => {
 })
 
 app.post('/jobs/:id/pay', getProfile, async (req, res) => {
-    const { Contract, Job } = req.app.get('models')
+    const { Contract, Job, Profile } = req.app.get('models')
 
     const { id } = req.params
     const job = await Job.findOne({
@@ -75,6 +75,18 @@ app.post('/jobs/:id/pay', getProfile, async (req, res) => {
             {
                 model: Contract,
                 required: true,
+                include: [
+                    {
+                        model: Profile,
+                        as: "Contractor",
+                        required: true,
+                    },
+                    {
+                        model: Profile,
+                        as: "Client",
+                        required: true,
+                    }
+                ]
             }
         ]
     })
@@ -102,11 +114,20 @@ app.post('/jobs/:id/pay', getProfile, async (req, res) => {
     const transaction = await sequelize.transaction();
     try {
         await Job.update({ paid: true }, { transaction, where: { id } })
-        // await Profile.update({ }, { transaction, where: { id } })
+
+        await Profile.update(
+            { balance: job.Contract.Client.balance - amountToPay },
+            { transaction, where: { id: job.Contract.Client.id } }
+        )
+        await Profile.update(
+            { balance: job.Contract.Contractor.balance + amountToPay },
+            { transaction, where: { id: job.Contract.Contractor.id } }
+        )
 
         await transaction.commit();
     } catch (error) {
         await transaction.rollback();
+        throw error;
     }
 
 

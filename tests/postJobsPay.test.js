@@ -2,6 +2,8 @@ const request = require("supertest");
 const app = require("../src/app");
 const seedDb = require("../scripts/seed");
 
+const { sequelize } = require('../src/model')
+
 describe("/jobs/:id/pay", () => {
     beforeAll(seedDb)
 
@@ -18,11 +20,17 @@ describe("/jobs/:id/pay", () => {
     describe("authenticated request on profile_1", () => {
         const profileId = "1"
         let unpaidJob;
+        let clientProfileBefore;
+        let contractorProfileBefore;
 
         test('there are unpaid jobs', async () => {
             const unpaidJobsResponse = await request(app).get("/jobs/unpaid").set("profile_id", profileId);
             unpaidJob = unpaidJobsResponse.body[0];
             expect(unpaidJob).toBeDefined()
+
+            const { Profile } = sequelize.models;
+            clientProfileBefore = await Profile.findOne({ where: { id: profileId } });
+            contractorProfileBefore = await Profile.findOne({ where: { id: unpaidJob.Contract.ContractorId } });
         });
 
         test('sufficient funds', async () => {
@@ -39,9 +47,18 @@ describe("/jobs/:id/pay", () => {
             expect(response.body).toEqual({ message: "Job has been paid already" });
         });
 
-        test.skip('funds transfered', async () => {
-            // funds should decrease for client
-            // funds should increase for contractor
+        test('funds transfered from client', async () => {
+            const { Profile } = sequelize.models;
+            const clientProfile = await Profile.findOne({ where: { id: profileId } });
+
+            expect(clientProfile.balance).toEqual(clientProfileBefore.balance - unpaidJob.price)
+        });
+
+        test('funds transfered to contractor', async () => {
+            const { Profile } = sequelize.models;
+            const contractorProfile = await Profile.findOne({ where: { id: unpaidJob.Contract.ContractorId } });
+
+            expect(contractorProfile.balance).toEqual(contractorProfileBefore.balance + unpaidJob.price)
         });
     });
 
