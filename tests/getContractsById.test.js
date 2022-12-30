@@ -1,7 +1,10 @@
 const request = require("supertest");
 const app = require("../src/app");
+const seedDb = require("../scripts/seed");
 
 describe("/contracts/:id", () => {
+    beforeAll(seedDb)
+
     test('unauthenticated request', async () => {
         const response = await request(app).get("/contracts/1");
         expect(response.statusCode).toBe(401);

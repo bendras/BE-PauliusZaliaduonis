@@ -1,7 +1,10 @@
 const request = require("supertest");
 const app = require("../src/app");
+const seedDb = require("../scripts/seed");
 
 describe("/jobs/unpaid", () => {
+    beforeAll(seedDb)
+
     test('unauthenticated request', async () => {
         const response = await request(app).get("/jobs/unpaid");
         expect(response.statusCode).toBe(401);
@@ -17,7 +20,6 @@ describe("/jobs/unpaid", () => {
         test('includes client jobs', async () => {
             const response = await request(app).get("/jobs/unpaid").set("profile_id", "1");
             expect(response.statusCode).toBe(200);
-            console.log("response.body:", JSON.stringify(response.body))
             expect(response.body).toEqual([
                 expect.objectContaining({
                     description: 'work',

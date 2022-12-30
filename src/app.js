@@ -65,8 +65,64 @@ app.get('/jobs/unpaid', getProfile, async (req, res) => {
     res.json(jobs)
 })
 
+app.post('/jobs/:id/pay', getProfile, async (req, res) => {
+    const { Contract, Job } = req.app.get('models')
+
+    const { id } = req.params
+    const job = await Job.findOne({
+        where: { id },
+        include: [
+            {
+                model: Contract,
+                required: true,
+            }
+        ]
+    })
+    if (!job) return res.status(404).end()
+
+    if (!isProfileAuthorised(req.profile, job.Contract)) {
+        return res.status(403).end();
+    }
+
+    if (!isClient(req.profile, job.Contract)) {
+        return res.status(400).json({ message: "Only client can pay for the job" }).end();
+    }
+
+    if (job.paid) {
+        return res.status(400).json({ message: "Job has been paid already" }).end();
+    }
+
+    if (!hasFunds(req.profile, job.price)) {
+        return res.status(400).json({ message: "Insufficient funds" }).end();
+    }
+
+    // TODO: transfer the amount to contractor balance.
+    const amountToPay = job.price;
+
+    const transaction = await sequelize.transaction();
+    try {
+        await Job.update({ paid: true }, { transaction, where: { id } })
+        // await Profile.update({ }, { transaction, where: { id } })
+
+        await transaction.commit();
+    } catch (error) {
+        await transaction.rollback();
+    }
+
+
+    res.json({ id, paid: true })
+})
+
 function isProfileAuthorised(profile, contract) {
     return contract.ClientId === profile.id || contract.ContractorId === profile.id;
+}
+
+function isClient(profile, contract) {
+    return contract.ClientId === profile.id;
+}
+
+function hasFunds(profile, fundsRequired) {
+    return profile.balance > fundsRequired;
 }
 
 module.exports = app;
