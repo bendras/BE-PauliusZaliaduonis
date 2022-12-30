@@ -12,7 +12,7 @@ app.set('models', sequelize.models)
 app.get('/contracts', getProfile, async (req, res) => {
     const { Contract } = req.app.get('models')
 
-    // TODO: improve terminated filtering
+    // TODO: improve status field filtering
     const contracts = await Contract.findAll({
         where: {
             [Op.or]: [
@@ -36,6 +36,33 @@ app.get('/contracts/:id', getProfile, async (req, res) => {
     }
 
     res.json(contract)
+})
+
+app.get('/jobs/unpaid', getProfile, async (req, res) => {
+    const { Contract, Job } = req.app.get('models')
+
+    const jobs = await Job.findAll({
+        where: {
+            [Op.or]: [
+                { paid: { [Op.eq]: false } },
+                { paid: { [Op.is]: null } },
+            ]
+        },
+        include: [
+            {
+                model: Contract,
+                required: true,
+                where: {
+                    [Op.or]: [
+                        { ClientId: req.profile.id, status: { [Op.ne]: "terminated" } },
+                        { ContractorId: req.profile.id, status: { [Op.ne]: "terminated" } },
+                    ]
+                }
+            }
+        ]
+    })
+
+    res.json(jobs)
 })
 
 function isProfileAuthorised(profile, contract) {
